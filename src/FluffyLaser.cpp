@@ -35,16 +35,17 @@ FluffyLaser::~FluffyLaser() {}
 void FluffyLaser::loop() {
     if (!mqttClient.connected()) {
         long now = millis();
-        if (now - mqttLastReconnectAttempt > 5000) {
+        if (now - mqttLastReconnectAttempt > 20000) {
             mqttLastReconnectAttempt = now;
             if (_connect(mqttUser, mqttPass)) {
                 mqttLastReconnectAttempt = 0;
             }
         }
+    } else {
+        mqttClient.loop();
     }
 
     laserMotor->loop();
-    mqttClient.loop();
 }
 
 bool FluffyLaser::connect(String server, uint16_t port, String user, String pass) {
