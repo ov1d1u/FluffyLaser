@@ -14,6 +14,8 @@ const char stop_topic[] = "fluffylaser/stop";
 const char power_topic[] = "fluffylaser/power";
 const char status_topic[] = "fluffylaser/status";
 
+String mqttServer;
+uint16_t mqttPort;
 String mqttUser;
 String mqttPass;
 long mqttLastReconnectAttempt = 0;
@@ -35,9 +37,9 @@ FluffyLaser::~FluffyLaser() {}
 void FluffyLaser::loop() {
     if (!mqttClient.connected()) {
         long now = millis();
-        if (now - mqttLastReconnectAttempt > 20000) {
+        if (now - mqttLastReconnectAttempt > 5000) {
             mqttLastReconnectAttempt = now;
-            if (_connect(mqttUser, mqttPass)) {
+            if (_connect()) {
                 mqttLastReconnectAttempt = 0;
             }
         }
@@ -49,14 +51,16 @@ void FluffyLaser::loop() {
 }
 
 bool FluffyLaser::connect(String server, uint16_t port, String user, String pass) {
+    mqttServer = server;
+    mqttPort = port;
     mqttUser = user;
     mqttPass = pass;
 
-    mqttClient.setServer(server.c_str(), port);
-    return _connect(mqttUser, mqttPass);
+    return _connect();
 }
 
-bool FluffyLaser::_connect(String user, String pass) {
+bool FluffyLaser::_connect() {
+    mqttClient.setServer(mqttServer.c_str(), mqttPort);
     bool success = mqttClient.connect(DEVICE_NAME, mqttUser.c_str(), mqttPass.c_str());
     if (success) {
         mqttClient.subscribe(DEVICE_TOPIC);

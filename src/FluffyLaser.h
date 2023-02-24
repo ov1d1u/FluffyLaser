@@ -14,7 +14,7 @@ class FluffyLaser
 		LaserMotor *laserMotor;
 		LaserSettings *laserSettings;
 
-		bool _connect(String user, String pass);
+		bool _connect();
 
 		// MQTT Messages
 		/* 
