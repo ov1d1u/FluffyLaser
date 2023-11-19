@@ -13,6 +13,7 @@ const char stop_topic[] = "fluffylaser/stop";
 
 const char power_topic[] = "fluffylaser/power";
 const char status_topic[] = "fluffylaser/status";
+const char reboot_topic[] = "fluffylaser/reboot";
 
 String mqttServer;
 uint16_t mqttPort;
@@ -56,11 +57,12 @@ bool FluffyLaser::connect(String server, uint16_t port, String user, String pass
     mqttUser = user;
     mqttPass = pass;
 
+    mqttClient.setServer(mqttServer.c_str(), mqttPort);
+
     return _connect();
 }
 
 bool FluffyLaser::_connect() {
-    mqttClient.setServer(mqttServer.c_str(), mqttPort);
     bool success = mqttClient.connect(DEVICE_NAME, mqttUser.c_str(), mqttPass.c_str());
     if (success) {
         mqttClient.subscribe(DEVICE_TOPIC);
@@ -90,6 +92,8 @@ void FluffyLaser::mqttCallback(char *topic, byte *data, unsigned int length) {
         stop(payload, length);
     } else if (strcmp(topic, power_topic) == 0) {
         power(payload, length);
+    } else if (strcmp(topic, reboot_topic) == 0) {
+        ESP.restart();
     }
 }
 

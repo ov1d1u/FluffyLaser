@@ -60,6 +60,26 @@ bool loadConfiguration() {
   return true;
 }
 
+void ensureWiFiConnection() {
+  // Check if WiFi is connected
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.print("Connecting to "); Serial.print(configuration.ssid); Serial.print("... ");
+    WiFi.hostname("Fluffy-Laser");
+    WiFi.begin(configuration.ssid.c_str(), configuration.password.c_str());
+    int ledState = HIGH;
+    while (WiFi.status() != WL_CONNECTED) {
+      delay(500);
+      digitalWrite(LED_PIN, ledState);
+      ledState = ledState == HIGH ? LOW : HIGH;
+    }
+    digitalWrite(LED_PIN, LOW);
+    Serial.println("done.");
+    Serial.print("Local IP address: "); Serial.println(WiFi.localIP());
+    WiFi.setAutoReconnect(true);
+    WiFi.persistent(true);
+  }
+}
+
 void setup() {
   Serial.begin(9600);
   Serial.println("Booting system");
@@ -76,20 +96,7 @@ void setup() {
   }
   Serial.println("done.");
 
-  Serial.print("Connecting to "); Serial.print(configuration.ssid); Serial.print("... ");
-  WiFi.hostname("Fluffy-Laser");
-  WiFi.begin(configuration.ssid.c_str(), configuration.password.c_str());
-  int ledState = HIGH;
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    digitalWrite(LED_PIN, ledState);
-    ledState = ledState == HIGH ? LOW : HIGH;
-  }
-  digitalWrite(LED_PIN, LOW);
-  Serial.println("done.");
-  Serial.print("Local IP address: "); Serial.println(WiFi.localIP());
-  WiFi.setAutoReconnect(true);
-  WiFi.persistent(true);
+  ensureWiFiConnection();
 
   Serial.print("Configuring MQTT... ");
   if (!fluffyLaser.connect(configuration.mqtt_server, configuration.mqtt_port, configuration.mqtt_user, configuration.mqtt_password)) {
@@ -104,6 +111,7 @@ void setup() {
 }
 
 void loop() {
+  ensureWiFiConnection();
   fluffyLaser.loop();
   ArduinoOTA.handle();
 }

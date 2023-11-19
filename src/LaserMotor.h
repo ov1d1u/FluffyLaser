@@ -17,8 +17,8 @@ typedef struct moverequest {
 } moverequest_t;
 
 typedef struct point {
-	int x = 0;
-	int y = 0;
+	int x;
+	int y;
 } point_t;
 
 typedef struct movement {
