@@ -9,7 +9,7 @@
 #define MOTOR_Y 14
 #define MAX_MOVES 50
 
-#define INIT_X 90
-#define INIT_Y 60
+#define INIT_X 100
+#define INIT_Y 70
 
 #endif

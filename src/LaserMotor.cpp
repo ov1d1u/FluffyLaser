@@ -12,7 +12,9 @@ void LaserMotor::setup() {
     pinMode(ledPin, OUTPUT);
     servoX.attach(motorXPin);
     servoY.attach(motorYPin);
-    move(INIT_X, INIT_Y, 0.5);
+    
+    servoX.write(INIT_X);
+    servoY.write(INIT_Y);
 }
 
 void LaserMotor::loop() {

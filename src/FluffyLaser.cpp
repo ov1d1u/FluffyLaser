@@ -28,6 +28,10 @@ FluffyLaser::FluffyLaser(WiFiClient &client, LaserMotor &_laserMotor, LaserSetti
     mqttClient.setClient(client);
     mqttClient.setCallback(
         [&](char *topic, uint8_t *payload, unsigned int length) {
+            if (mqttClient.isRetained()) {
+                return;
+            }
+            
             mqttCallback(topic, payload, length);
         }
     );
