@@ -1,9 +1,13 @@
 #include <Arduino.h>
+#if defined(ESP8266)
 #include <ESP8266WiFi.h>
+#elif defined(ESP32)
+#include <WiFi.h>
+#endif
 #include <ArduinoOTA.h>
 #include <Defines.h>
 #include <LaserMotor.h>
-#include <FluffyLaser.h>
+#include <FluffyLaserMQTT.h>
 #include <LaserSettings.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
@@ -12,17 +16,11 @@
 WiFiClient wifiClient;
 LaserSettings laserSettings;
 LaserMotor laserMotor(LED_PIN, MOTOR_X, MOTOR_Y);
-FluffyLaser fluffyLaser(wifiClient, laserMotor, laserSettings);
+FluffyLaserMQTT fluffyLaser(wifiClient, laserMotor, laserSettings);
 
 bool isConfigured = false;
-struct {
-  String ssid;
-  String password;
-  String mqtt_server;
-  String mqtt_user;
-  String mqtt_password;
-  int mqtt_port;
-} configuration;
+Configuration configuration;
+uint8_t mac[6];
 
 bool loadConfiguration() {
   LittleFS.begin();
@@ -64,7 +62,6 @@ void ensureWiFiConnection() {
   // Check if WiFi is connected
   if (WiFi.status() != WL_CONNECTED) {
     Serial.print("Connecting to "); Serial.print(configuration.ssid); Serial.print("... ");
-    WiFi.hostname("Fluffy-Laser");
     WiFi.begin(configuration.ssid.c_str(), configuration.password.c_str());
     int ledState = HIGH;
     while (WiFi.status() != WL_CONNECTED) {
@@ -84,9 +81,12 @@ void setup() {
   Serial.begin(9600);
   Serial.println("Booting system");
 
-  Serial.print("Configuring motors... ");
-  laserMotor.setup();
-  Serial.println("done.");
+  pinMode(LED_PIN, OUTPUT);
+
+  Serial.println("Configuration details:");
+  Serial.print("  LED_PIN: "); Serial.println(LED_PIN);
+  Serial.print("  MOTOR_X: "); Serial.println(MOTOR_X);
+  Serial.print("  MOTOR_Y: "); Serial.println(MOTOR_Y);
 
   Serial.print("Loading configuration... ");
   isConfigured = loadConfiguration();
@@ -96,14 +96,12 @@ void setup() {
   }
   Serial.println("done.");
 
+  WiFi.macAddress(mac);
   ensureWiFiConnection();
 
-  Serial.print("Configuring MQTT... ");
-  if (!fluffyLaser.connect(configuration.mqtt_server, configuration.mqtt_port, configuration.mqtt_user, configuration.mqtt_password)) {
-    Serial.println("fail.");
-    return;
-  }
-  Serial.println("done.");
+  Serial.println("Configuring laser system... ");
+  fluffyLaser.setup(configuration, mac);
+  Serial.println("All done.");
 
   Serial.print("Configuring OTA... ");
   ArduinoOTA.begin();

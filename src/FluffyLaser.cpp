@@ -1,57 +1,19 @@
-#include <ESP8266TrueRandom.h>
+#include <ESPTrueRandom.h>
 #include <ArduinoJson.h>
 #include <LittleFS.h>
 #include "FluffyLaser.h"
 #include "FileReader.h"
 
-const char move_topic[] = "fluffylaser/move";
-const char laser_topicl[] = "fluffylaser/light";
-const char limits_topic[] = "fluffylaser/limits";
-const char run_program_topic[] = "fluffylaser/program/run";
-const char play_program_topic[] = "fluffylaser/program/play";
-const char stop_topic[] = "fluffylaser/stop";
-
-const char power_topic[] = "fluffylaser/power";
-const char status_topic[] = "fluffylaser/status";
-const char reboot_topic[] = "fluffylaser/reboot";
-
-String mqttServer;
-uint16_t mqttPort;
-String mqttUser;
-String mqttPass;
-long mqttLastReconnectAttempt = 0;
-
-FluffyLaser::FluffyLaser(WiFiClient &client, LaserMotor &_laserMotor, LaserSettings &_laserSettings)
+FluffyLaser::FluffyLaser(LaserMotor &_laserMotor, LaserSettings &_laserSettings)
 {
     laserMotor = &_laserMotor;
     laserSettings = &_laserSettings;
-    mqttClient.setClient(client);
-    mqttClient.setCallback(
-        [&](char *topic, uint8_t *payload, unsigned int length) {
-            if (mqttClient.isRetained()) {
-                return;
-            }
-            
-            mqttCallback(topic, payload, length);
-        }
-    );
 }
 
 FluffyLaser::~FluffyLaser() {}
 
 void FluffyLaser::loop() {
     long now = millis();
-
-    if (!mqttClient.connected()) {
-        if (now - mqttLastReconnectAttempt > 5000) {
-            mqttLastReconnectAttempt = now;
-            if (_connect()) {
-                mqttLastReconnectAttempt = 0;
-            }
-        }
-    } else {
-        mqttClient.loop();
-    }
 
     laserMotor->loop();
 
@@ -62,74 +24,33 @@ void FluffyLaser::loop() {
     }
 }
 
-bool FluffyLaser::connect(String server, uint16_t port, String user, String pass) {
-    mqttServer = server;
-    mqttPort = port;
-    mqttUser = user;
-    mqttPass = pass;
-
-    mqttClient.setServer(mqttServer.c_str(), mqttPort);
-
-    return _connect();
+void FluffyLaser::setup(Configuration configuration, uint8_t mac[6]) {
+    memcpy(this->mac, mac, sizeof(this->mac));
+    laserMotor->setup();
 }
 
-bool FluffyLaser::_connect() {
-    bool success = mqttClient.connect(DEVICE_NAME, mqttUser.c_str(), mqttPass.c_str());
-    if (success) {
-        mqttClient.subscribe(DEVICE_TOPIC);
-    }
+String FluffyLaser::getClientId() {
+    char macStr[18];
+    sprintf(macStr, "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
-    return success;
+    return String("FluffyLaser-") + macStr;
 }
 
-void FluffyLaser::mqttCallback(char *topic, byte *data, unsigned int length) {
-    char payload[length];
-    strncpy(payload, (char*)data, length);
-    payload[length] = '\0';
-    Serial.print("Got MQTT message of length "); Serial.print(length); Serial.println(": ");
-    Serial.println(payload);
-
-    if (strcmp(topic, move_topic) == 0) {
-        motorMove(payload, length);
-    } else if (strcmp(topic, laser_topicl) == 0) {
-        laserControl(payload, length);
-    } else if (strcmp(topic, limits_topic) == 0) {
-        limitsControl(payload, length);
-    } else if (strcmp(topic, run_program_topic) == 0) {
-        startProgram(payload, length);
-    } else if (strcmp(topic, play_program_topic) == 0) {
-        playProgram(payload, length);
-    } else if (strcmp(topic, stop_topic) == 0) {
-        stop(payload, length);
-    } else if (strcmp(topic, power_topic) == 0) {
-        power(payload, length);
-    } else if (strcmp(topic, reboot_topic) == 0) {
-        ESP.restart();
-    }
-}
-
-void FluffyLaser::motorMove(char *payload, unsigned int length) {
-    int posX, posY;
-    double speed;
-    sscanf(payload, "%d,%d,%lf", &posX, &posY, &speed);
-    Serial.print("motorMove: "); Serial.print("  x: "); Serial.print(posX); Serial.print("  y:"); Serial.print(posY); Serial.print("  speed:"); Serial.println(speed);
+void FluffyLaser::motorMove(int x, int y, double speed) {
+    Serial.print("motorMove: "); Serial.print("  x: "); Serial.print(x); Serial.print("  y:"); Serial.print(y); Serial.print("  speed:"); Serial.println(speed);
     movement move;
-    move.point.x = posX;
-    move.point.y = posY;
+    move.point.x = x;
+    move.point.y = y;
     move.speed = speed;
     laserMotor->move(move);
 }
 
-void FluffyLaser::laserControl(char *payload, unsigned int length) {
-    int power;
-    sscanf(payload, "%d", &power);
+void FluffyLaser::laserControl(bool power) {
     Serial.print("laserControl: "); Serial.println(power);
     setLaserPower(power);
 }
 
-void FluffyLaser::limitsControl(char *payload, unsigned int length) {
-    int minX, maxX, minY, maxY;
-    sscanf(payload, "%d,%d,%d,%d", &minX, &maxX, &minY, &maxY);
+void FluffyLaser::limitsControl(int minX, int maxX, int minY, int maxY) {
     Serial.print("limitsControl: "); 
     Serial.print("  x: "); Serial.print(minX); Serial.print(","); Serial.print(maxX);
     Serial.print("  y: "); Serial.print(minY); Serial.print(","); Serial.println(maxY);
@@ -256,23 +177,14 @@ void FluffyLaser::playProgram(char *payload, unsigned int length) {
     Serial.println("playProgram");
 }
 
-void FluffyLaser::startProgram(char *payload, unsigned int length) {
-    int progNum;
-    unsigned long progDuration = MAX_RUN_TIME;
-    
-    int numParsed = sscanf(payload, "%d,%lu", &progNum, &progDuration);
-
+void FluffyLaser::startProgram(int progNum, unsigned long duration) {
     Serial.print("startProgram: ");
     Serial.print(progNum);
 
-    if (numParsed > 1) {
-        Serial.print(", Duration: ");
-        Serial.println(progDuration);
-    } else {
-        Serial.println();
-    }
+    Serial.print(", Duration: ");
+    Serial.println(duration);
 
-    runProgram(progNum, progDuration);
+    runProgram(progNum, duration);
 }
 
 void FluffyLaser::runProgram(int progNum, unsigned long duration) {
@@ -290,15 +202,15 @@ void FluffyLaser::runProgram(int progNum, unsigned long duration) {
         for (int i = 0; i < MAX_MOVES; i++) {
             movement move;
             point_t point;
-            // move.speed = ESP8266TrueRandom.random(20, 40) / 10.0;
-            point.x = ESP8266TrueRandom.random(limits.minX, limits.maxX);
-            point.y = ESP8266TrueRandom.random(limits.minY, limits.maxY);
+            // move.speed = ESPTrueRandom.random(20, 40) / 10.0;
+            point.x = ESPTrueRandom.random(limits.minX, limits.maxX);
+            point.y = ESPTrueRandom.random(limits.minY, limits.maxY);
             move.point = point;
             
             int distance = sqrt(pow(move.point.x - startPoint.x, 2) + pow(move.point.y - startPoint.y, 2) * 1.0);
             int min_speed = map(distance * 10, 0, 1800, 5, 14);  // Multiply everything with 10
             int max_speed = map(distance * 10, 0, 1800, 15, 30);  // Multiply everything with 10
-            move.speed = ESP8266TrueRandom.random(min_speed, max_speed) / 10.0;
+            move.speed = ESPTrueRandom.random(min_speed, max_speed) / 10.0;
 
             program.moves[i] = move;
             startPoint = move.point;
@@ -345,22 +257,16 @@ void FluffyLaser::runProgram(int progNum, unsigned long duration) {
     laserMotor->startProgram(program);
 }
 
-void FluffyLaser::power(char *payload, unsigned int length) {
-    int power;
-    sscanf(payload, "%d", &power);
+void FluffyLaser::power(bool power) {
     Serial.print("power: "); Serial.println(power);
 
-    if (power == 0) {
+    if (power == false) {
         setLaserPower(false);
         laserMotor->stop();
     } else {
         setLaserPower(true);
         runProgram(0, DEFAULT_RUN_TIME);
     }
-}
-
-void FluffyLaser::stop(char *payload, unsigned int length) {
-    stop();
 }
 
 void FluffyLaser::stop() {
@@ -372,5 +278,4 @@ void FluffyLaser::stop() {
 void FluffyLaser::setLaserPower(bool power) {
     Serial.print("setLaserPower: "); Serial.println(power);
     laserMotor->laserControl(power);
-    mqttClient.publish(status_topic, String(power).c_str());
 }

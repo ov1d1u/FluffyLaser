@@ -2,7 +2,11 @@
 #ifndef ARDUINO_LASERMOTOR_H
 #define ARDUINO_LASERMOTOR_H
 #include <Arduino.h>
+#if defined(ESP8266)
 #include <Servo.h>
+#elif defined(ESP32)
+#include <ESP32Servo.h>
+#endif
 #include <Defines.h>
 
 
