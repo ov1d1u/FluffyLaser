@@ -3,9 +3,13 @@
 #define ARDUINO_FLUFFYLASER_H
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
+#include <limits.h>
 #include <LaserMotor.h>
 #include <LaserSettings.h>
 #include <PubSubClient.h>
+
+#define MAX_RUN_TIME ULONG_MAX
+#define DEFAULT_RUN_TIME 5 * 60 * 1000
 
 class FluffyLaser  
 {
@@ -13,6 +17,9 @@ class FluffyLaser
 		PubSubClient mqttClient;
 		LaserMotor *laserMotor;
 		LaserSettings *laserSettings;
+		
+		long programStartTime;
+		long programDuration;
 
 		bool _connect();
 
@@ -95,11 +102,16 @@ class FluffyLaser
 		Message is empty.
 		*/
 		void stop(char *payload, unsigned int length);
+
+		/*
+		Stop the device at the current position. The laser light will be turned off.
+		*/
+		void stop();
 	public:
 		FluffyLaser(WiFiClient &client, LaserMotor &_laserMotor, LaserSettings &_laserSettings);
 		~FluffyLaser();
 		void setLaserPower(bool power);
-		void runProgram(int progNum);
+		void runProgram(int progNum, unsigned long duration);
 		void loop();
 		boolean connect(String server, uint16_t port, String user, String pass);
 		void mqttCallback(char *topic, byte *payload, unsigned int length);

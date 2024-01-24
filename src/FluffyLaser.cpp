@@ -40,8 +40,9 @@ FluffyLaser::FluffyLaser(WiFiClient &client, LaserMotor &_laserMotor, LaserSetti
 FluffyLaser::~FluffyLaser() {}
 
 void FluffyLaser::loop() {
+    long now = millis();
+
     if (!mqttClient.connected()) {
-        long now = millis();
         if (now - mqttLastReconnectAttempt > 5000) {
             mqttLastReconnectAttempt = now;
             if (_connect()) {
@@ -53,6 +54,12 @@ void FluffyLaser::loop() {
     }
 
     laserMotor->loop();
+
+    if ((programStartTime != 0 && programDuration != 0) && now > programStartTime + programDuration) {
+        programStartTime = 0;
+        programDuration = 0;
+        stop();
+    }
 }
 
 bool FluffyLaser::connect(String server, uint16_t port, String user, String pass) {
@@ -251,14 +258,29 @@ void FluffyLaser::playProgram(char *payload, unsigned int length) {
 
 void FluffyLaser::startProgram(char *payload, unsigned int length) {
     int progNum;
-    sscanf(payload, "%d", &progNum);
-    Serial.print("startProgram: "); Serial.println(progNum);
+    unsigned long progDuration = MAX_RUN_TIME;
+    
+    int numParsed = sscanf(payload, "%d,%lu", &progNum, &progDuration);
 
-    runProgram(progNum);
+    Serial.print("startProgram: ");
+    Serial.print(progNum);
+
+    if (numParsed > 1) {
+        Serial.print(", Duration: ");
+        Serial.println(progDuration);
+    } else {
+        Serial.println();
+    }
+
+    runProgram(progNum, progDuration);
 }
 
-void FluffyLaser::runProgram(int progNum) {
+void FluffyLaser::runProgram(int progNum, unsigned long duration) {
     playprogram_t program;
+
+    programStartTime = millis();
+    programDuration = duration;
+
     if (progNum == 0) {
         // Generate program
         movlimits limits = laserSettings->getLimits();
@@ -333,11 +355,15 @@ void FluffyLaser::power(char *payload, unsigned int length) {
         laserMotor->stop();
     } else {
         setLaserPower(true);
-        runProgram(0);
+        runProgram(0, DEFAULT_RUN_TIME);
     }
 }
 
 void FluffyLaser::stop(char *payload, unsigned int length) {
+    stop();
+}
+
+void FluffyLaser::stop() {
     Serial.println("stop");
     setLaserPower(false);
     laserMotor->stop();
