@@ -37,7 +37,7 @@ class FluffyLaserMQTT: public FluffyLaser
 		Example MQTT message:
 			60,90,2.0
 		*/
-		void motorMove(char *payload, unsigned int length);
+		void mqttMotorMove(char *payload, unsigned int length);
 
 		/*
 		Turn on or off the laser light. Message syntax:
@@ -48,7 +48,7 @@ class FluffyLaserMQTT: public FluffyLaser
 		Example MQTT message:
 			1
 		*/
-		void laserControl(char *payload, unsigned int length);
+		void mqttLaserControl(char *payload, unsigned int length);
 
 		/*
 		Configure the limits of the coordinates randomly generated when using program 0.
@@ -64,7 +64,7 @@ class FluffyLaserMQTT: public FluffyLaser
 		Example MQTT message:
 			20,160,10,80
 		*/
-		void limitsControl(char *payload, unsigned int length);
+		void mqttLimitsControl(char *payload, unsigned int length);
 
 		/*
 		Start a stored program. Message syntax:
@@ -76,7 +76,7 @@ class FluffyLaserMQTT: public FluffyLaser
 		Example MQTT message:
 			0,30000
 		*/
-		void startProgram(char *payload, unsigned int length);
+		void mqttStartProgram(char *payload, unsigned int length);
 
 		/* 
 		Play a sequence of coordinates. Maximum 50 pairs of commands. Message syntax:
@@ -89,7 +89,7 @@ class FluffyLaserMQTT: public FluffyLaser
 		Example MQTT message:
 			10,60,2.0,30,10,1.5,80,120,1.5,60,90,2.0
 		*/
-		void playProgram(char *payload, unsigned int length);
+		void mqttPlayProgram(char *payload, unsigned int length);
 
 		/*
 		Turns on or off the device. When turning the device on, the selected program will be 0
@@ -98,13 +98,13 @@ class FluffyLaserMQTT: public FluffyLaser
 		where:
 			x - int 0 || 1, the state of power
 		*/
-		void power(char *payload, unsigned int length);
+		void mqttSetPower(char *payload, unsigned int length);
 
 		/*
 		Stop the device at the current position. The laser light will be turned off.
 		Message is empty.
 		*/
-		void stop(char *payload, unsigned int length);
+		void mqttCallStop(char *payload, unsigned int length);
 	public:
 		FluffyLaserMQTT(WiFiClient &client, LaserMotor &_laserMotor, LaserSettings &_laserSettings);
 		~FluffyLaserMQTT();
@@ -112,5 +112,6 @@ class FluffyLaserMQTT: public FluffyLaser
 		boolean connect(String server, uint16_t port, String user, String pass);
 		void mqttCallback(char *topic, byte *payload, unsigned int length);
 		void loop();
+		void power(bool power);
 };
 #endif

@@ -34,7 +34,7 @@ class FluffyLaser
 		void laserControl(bool power);
 		void limitsControl(int minX, int maxX, int minY, int maxY);
 		void startProgram(int progNum, unsigned long duration);
-		void playProgram(char *payload, unsigned int length);
+		void playProgram(const char *payload, unsigned int length);
 		void setLaserPower(bool power);
 		void runProgram(int progNum, unsigned long duration);
 		void power(bool power);

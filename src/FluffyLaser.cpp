@@ -126,7 +126,7 @@ void FluffyLaser::limitsControl(int minX, int maxX, int minY, int maxY) {
     }
 }*/
 
-void FluffyLaser::playProgram(char *payload, unsigned int length) {
+void FluffyLaser::playProgram(const char *payload, unsigned int length) {
     movement moves[MAX_MOVES];
     char accumulator[7] = {'\0'};
 
@@ -183,7 +183,7 @@ void FluffyLaser::startProgram(int progNum, unsigned long duration) {
 
     Serial.print(", Duration: ");
     Serial.println(duration);
-
+    
     runProgram(progNum, duration);
 }
 
@@ -196,6 +196,7 @@ void FluffyLaser::runProgram(int progNum, unsigned long duration) {
     if (progNum == 0) {
         // Generate program
         movlimits limits = laserSettings->getLimits();
+        Serial.print("Limits: "); Serial.print(limits.minX); Serial.print(","); Serial.print(limits.maxX); Serial.print(","); Serial.print(limits.minY); Serial.print(","); Serial.println(limits.maxY);
         
         point_t startPoint = { .x = INIT_X, .y = INIT_Y };
 
@@ -217,6 +218,7 @@ void FluffyLaser::runProgram(int progNum, unsigned long duration) {
         }
     } else {
         // Read program from LittleFS
+        Serial.print("Program "); Serial.print(progNum); Serial.println(" selected");
         char progFile[8];
         snprintf(progFile, 8, "/%d.json", progNum);
         FileReader programReader = FileReader(progFile);

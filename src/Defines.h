@@ -9,6 +9,11 @@
 struct Configuration {
   String ssid;
   String password;
+  String static_ip;
+  String gateway;
+  String subnet;
+  String primary_dns;
+  String secondary_dns;
   String mqtt_server;
   String mqtt_user;
   String mqtt_password;

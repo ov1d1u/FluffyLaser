@@ -19,7 +19,6 @@ String mqttServer;
 uint16_t mqttPort;
 String mqttUser;
 String mqttPass;
-long mqttLastReconnectAttempt = 0;
 
 FluffyLaserMQTT::FluffyLaserMQTT(WiFiClient &client, LaserMotor &_laserMotor, LaserSettings &_laserSettings)
     : FluffyLaser(_laserMotor, _laserSettings)
@@ -48,15 +47,8 @@ char* FluffyLaserMQTT::getTopicName(const char *topic) {
 }
 
 void FluffyLaserMQTT::loop() {
-    long now = millis();
-
     if (!mqttClient.connected()) {
-        if (now - mqttLastReconnectAttempt > 5000) {
-            mqttLastReconnectAttempt = now;
-            if (_connect()) {
-                mqttLastReconnectAttempt = 0;
-            }
-        }
+        _connect();
     } else {
         mqttClient.loop();
     }
@@ -105,46 +97,43 @@ void FluffyLaserMQTT::mqttCallback(char *topic, byte *data, unsigned int length)
     Serial.println(payload);
 
     if (strcmp(topic, getTopicName(move_topic)) == 0) {
-        motorMove(payload, length);
+        mqttMotorMove(payload, length);
     } else if (strcmp(topic, getTopicName(laser_topic)) == 0) {
-        laserControl(payload, length);
+        mqttLaserControl(payload, length);
     } else if (strcmp(topic, getTopicName(limits_topic)) == 0) {
-        limitsControl(payload, length);
+        mqttLimitsControl(payload, length);
     } else if (strcmp(topic, getTopicName(run_program_topic)) == 0) {
-        startProgram(payload, length);
+        mqttStartProgram(payload, length);
     } else if (strcmp(topic, getTopicName(play_program_topic)) == 0) {
-        playProgram(payload, length);
+        mqttPlayProgram(payload, length);
     } else if (strcmp(topic, getTopicName(stop_topic)) == 0) {
-        stop(payload, length);
+        mqttCallStop(payload, length);
     } else if (strcmp(topic, getTopicName(power_topic)) == 0) {
-        power(payload, length);
+        mqttSetPower(payload, length);
     } else if (strcmp(topic, getTopicName(reboot_topic)) == 0) {
         ESP.restart();
     }
 }
 
-void FluffyLaserMQTT::motorMove(char *payload, unsigned int length) {
+void FluffyLaserMQTT::mqttMotorMove(char *payload, unsigned int length) {
     int posX, posY;
     double speed;
     sscanf(payload, "%d,%d,%lf", &posX, &posY, &speed);
     Serial.print("motorMove: "); Serial.print("  x: "); Serial.print(posX); Serial.print("  y:"); Serial.print(posY); Serial.print("  speed:"); Serial.println(speed);
-    FluffyLaser::motorMove(posX, posY, speed);
+    motorMove(posX, posY, speed);
 }
 
-void FluffyLaserMQTT::laserControl(char *payload, unsigned int length) {
+void FluffyLaserMQTT::mqttLaserControl(char *payload, unsigned int length) {
     int power;
     sscanf(payload, "%d", &power);
     Serial.print("laserControl: "); Serial.println(power);
     setLaserPower(power);
 }
 
-void FluffyLaserMQTT::limitsControl(char *payload, unsigned int length) {
+void FluffyLaserMQTT::mqttLimitsControl(char *payload, unsigned int length) {
     int minX, maxX, minY, maxY;
     sscanf(payload, "%d,%d,%d,%d", &minX, &maxX, &minY, &maxY);
-    Serial.print("limitsControl: "); 
-    Serial.print("  x: "); Serial.print(minX); Serial.print(","); Serial.print(maxX);
-    Serial.print("  y: "); Serial.print(minY); Serial.print(","); Serial.println(maxY);
-    FluffyLaser::limitsControl(minX, maxX, minY, maxY);
+    limitsControl(minX, maxX, minY, maxY);
 }
 
 /*void FluffyLaserMQTT::setProgram(char *payload, unsigned int length) {
@@ -211,24 +200,29 @@ void FluffyLaserMQTT::limitsControl(char *payload, unsigned int length) {
     }
 }*/
 
-void FluffyLaserMQTT::playProgram(char *payload, unsigned int length) {
-    FluffyLaser::playProgram(payload, length);
+void FluffyLaserMQTT::mqttPlayProgram(char *payload, unsigned int length) {
+    playProgram(payload, length);
 }
 
-void FluffyLaserMQTT::startProgram(char *payload, unsigned int length) {
+void FluffyLaserMQTT::mqttStartProgram(char *payload, unsigned int length) {
     int progNum;
     unsigned long progDuration = MAX_RUN_TIME;
     
     sscanf(payload, "%d,%lu", &progNum, &progDuration);
-    FluffyLaser::startProgram(progNum, progDuration);
+    startProgram(progNum, progDuration);
 }
 
-void FluffyLaserMQTT::power(char *payload, unsigned int length) {
-    int power;
-    sscanf(payload, "%d", &power);
+void FluffyLaserMQTT::mqttSetPower(char *payload, unsigned int length) {
+    int onoff;
+    sscanf(payload, "%d", &onoff);
+    power(onoff);
+}
+
+void FluffyLaserMQTT::mqttCallStop(char *payload, unsigned int length) {
+    stop();
+}
+
+void FluffyLaserMQTT::power(bool power) {
     FluffyLaser::power(power);
-}
-
-void FluffyLaserMQTT::stop(char *payload, unsigned int length) {
-    FluffyLaser::stop();
+    mqttClient.publish(getTopicName(status_topic), power ? "1" : "0");
 }
